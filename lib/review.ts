@@ -1,0 +1,202 @@
+import { staticFindings } from "./analyzer";
+import { parseDiff } from "./diff";
+import { chat, hasNebiusKey, parseJsonArray } from "./llm";
+import { DEFAULT_MODEL, costUsd, modelSpec } from "./pricing";
+import { SYSTEM_PROMPT, userPrompt } from "./prompts";
+import type {
+  Finding,
+  ReviewRequest,
+  ReviewResult,
+  Severity,
+  Verdict,
+} from "./types";
+
+const SEV_WEIGHT: Record<Severity, number> = {
+  critical: 25,
+  high: 12,
+  medium: 5,
+  low: 2,
+  info: 0,
+};
+
+function newId(): string {
+  return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+}
+
+async function fetchPr(
+  url: string
+): Promise<{ diff: string; title: string; author: string }> {
+  const m = /github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/.exec(url);
+  if (!m) throw new Error("Not a GitHub PR URL (owner/repo/pull/N).");
+  const [, owner, repo, n] = m;
+  const [metaRes, diffRes] = await Promise.all([
+    fetch(`https://api.github.com/repos/${owner}/${repo}/pulls/${n}`, {
+      headers: { Accept: "application/vnd.github+json" },
+      signal: AbortSignal.timeout(20_000),
+    }),
+    fetch(`https://github.com/${owner}/${repo}/pull/${n}.diff`, {
+      redirect: "follow",
+      signal: AbortSignal.timeout(30_000),
+    }),
+  ]);
+  if (!diffRes.ok) throw new Error(`Could not fetch PR diff (${diffRes.status}).`);
+  const diff = await diffRes.text();
+  let title = `${owner}/${repo} #${n}`;
+  let author = "unknown";
+  if (metaRes.ok) {
+    const meta = await metaRes.json();
+    title = meta.title ?? title;
+    author = meta.user?.login ?? author;
+  }
+  return { diff, title, author };
+}
+
+function modelFindingsFrom(
+  path: string,
+  items: unknown[]
+): Finding[] {
+  const out: Finding[] = [];
+  for (const it of items) {
+    const f = it as Partial<Finding>;
+    if (!f || typeof f.title !== "string" || typeof f.line !== "number") continue;
+    const sev: Severity = (
+      ["critical", "high", "medium", "low", "info"] as Severity[]
+    ).includes(f.severity as Severity)
+      ? (f.severity as Severity)
+      : "medium";
+    out.push({
+      id: `m-${newId()}`,
+      file: path,
+      line: f.line,
+      severity: sev,
+      category: (["security", "bug", "performance", "reliability", "style"] as const).includes(
+        f.category as never
+      )
+        ? (f.category as Finding["category"])
+        : "bug",
+      title: f.title.slice(0, 90),
+      detail: String(f.detail ?? "").slice(0, 600),
+      suggestion: String(f.suggestion ?? "").slice(0, 600),
+      evidence: "",
+      source: "model",
+    });
+  }
+  return out;
+}
+
+export async function runReview(req: ReviewRequest): Promise<ReviewResult> {
+  const t0 = Date.now();
+
+  let diff = req.diff ?? "";
+  let title = req.title?.trim() || "Unsaved working diff";
+  let author = req.author?.trim() || "you";
+
+  if (req.prUrl) {
+    const pr = await fetchPr(req.prUrl);
+    diff = pr.diff;
+    title = pr.title;
+    author = pr.author;
+  }
+  if (!diff.trim())
+    throw new Error("The diff is empty — the PR has no changes or is not public.");
+
+  const files = parseDiff(diff);
+  if (files.length === 0) throw new Error("No `diff --git` sections found — is this a unified diff?");
+
+  let findings: Finding[] = files.flatMap((f) => staticFindings(f.path, f.raw));
+  let provider: ReviewResult["provider"] = "static";
+  const model = req.model && modelSpec(req.model) ? req.model : DEFAULT_MODEL;
+  let inputTokens = 0;
+  let outputTokens = 0;
+
+  if (hasNebiusKey()) {
+    provider = "nebius";
+    const targets = files
+      .filter((f) => f.additions > 0)
+      .slice(0, 10); // cap: 10 files per review keeps demo latency sane
+    const results = await Promise.allSettled(
+      targets.map(async (f) => {
+        const reply = await chat(model, [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: userPrompt(f.path, f.raw, { title, author }) },
+        ]);
+        inputTokens += reply.inputTokens;
+        outputTokens += reply.outputTokens;
+        return modelFindingsFrom(f.path, parseJsonArray(reply.content));
+      })
+    );
+    for (const r of results) {
+      if (r.status === "fulfilled") {
+        findings = findings.concat(r.value);
+      } else {
+        console.error("model review failed:", r.reason);
+        provider = "static";
+      }
+    }
+  }
+
+  // dedupe: model finding on same file+line+category as a static hit → keep model
+  const seen = new Map<string, Finding>();
+  const ordered = [...findings].sort(
+    (a, b) => (a.source === "model" ? 0 : 1) - (b.source === "model" ? 0 : 1)
+  );
+  for (const f of ordered) {
+    const key = `${f.file}|${f.line}|${f.category}`;
+    if (!seen.has(key)) seen.set(key, f);
+  }
+  findings = [...seen.values()];
+
+  const riskScore = Math.min(
+    100,
+    findings.reduce((s, f) => s + SEV_WEIGHT[f.severity], 0)
+  );
+  const verdict: Verdict = findings.some((f) => f.severity === "critical")
+    ? "reject"
+    : riskScore >= 25 || findings.some((f) => f.severity === "high")
+      ? "flag"
+      : "approve";
+
+  const spec = modelSpec(model);
+  const usageCost = provider === "nebius" ? costUsd(spec, inputTokens, outputTokens) : 0;
+  const count = (s: Severity) => findings.filter((f) => f.severity === s).length;
+
+  return {
+    id: newId(),
+    createdAt: Date.now(),
+    title,
+    author,
+    sourceUrl: req.prUrl,
+    provider,
+    model: provider === "nebius" ? model : "Static Pre-Analyzer + " + model,
+    files,
+    findings,
+    riskScore,
+    verdict,
+    summary:
+      `${files.length} file(s), ${files.reduce((s, f) => s + f.additions, 0)} added lines reviewed — ` +
+      `${count("critical")} critical, ${count("high")} high, ${count("medium")} medium, ${count("low")} low. ` +
+      (verdict === "reject"
+        ? "Red card: blocking issues must be fixed before merge."
+        : verdict === "flag"
+          ? "Yellow card: address the flagged issues, then re-run the referee."
+          : "Clean sheet: no blocking issues detected."),
+    usage: {
+      model,
+      inputTokens,
+      outputTokens,
+      costUsd: usageCost,
+    },
+    elapsedMs: Date.now() - t0,
+  };
+}
+
+/* In-memory result store (survives the demo session; restarts clear it). */
+const G = globalThis as unknown as { __refereeStore?: Map<string, ReviewResult> };
+const store = (G.__refereeStore ??= new Map<string, ReviewResult>());
+
+export function saveReview(r: ReviewResult): void {
+  store.set(r.id, r);
+}
+export function getReview(id: string): ReviewResult | undefined {
+  return store.get(id);
+}
