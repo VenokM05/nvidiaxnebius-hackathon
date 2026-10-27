@@ -71,11 +71,18 @@ export default function Results({ review }: { review: ReviewResult }) {
             )}
           </p>
         </div>
-        <Pill className={review.provider === "nebius" ? "text-primary-bright" : ""}>
-          {review.provider === "nebius"
-            ? "Nebius Token Factory"
-            : "static pre-analyzer mode"}
-        </Pill>
+        <div className="flex shrink-0 items-center gap-2">
+          {(review.modelFailures ?? 0) > 0 || (review.droppedFindings ?? 0) > 0 ? (
+            <Pill className="text-medium" title="Model coverage was incomplete">
+              ⚑ partial review
+            </Pill>
+          ) : null}
+          <Pill className={review.provider === "nebius" ? "text-primary-bright" : ""}>
+            {review.provider === "nebius"
+              ? "Nebius Token Factory"
+              : "static pre-analyzer mode"}
+          </Pill>
+        </div>
       </div>
 
       <VerdictPanel review={review} />

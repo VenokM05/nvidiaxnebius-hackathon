@@ -2,6 +2,7 @@
 
 import { MODELS } from "@/lib/pricing";
 import { cacheReview } from "@/lib/review-cache";
+import { CLEAN_AUTHOR, CLEAN_DIFF, CLEAN_TITLE } from "@/lib/sample-clean";
 import { SAMPLE_AUTHOR, SAMPLE_DIFF, SAMPLE_TITLE } from "@/lib/sample-pr";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
@@ -65,6 +66,14 @@ export default function ReviewForm() {
     setError(null);
   }
 
+  function loadCleanSample() {
+    setMode("diff");
+    setDiff(CLEAN_DIFF);
+    setTitle(CLEAN_TITLE);
+    setAuthor(CLEAN_AUTHOR);
+    setError(null);
+  }
+
   function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -97,12 +106,22 @@ export default function ReviewForm() {
             Paste / upload diff
           </button>
         </div>
-        <button
-          onClick={loadSample}
-          className="text-xs font-medium text-primary-bright hover:underline focus-ring rounded"
-        >
-          Try a rigged sample PR →
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={loadSample}
+            className="text-xs font-medium text-primary-bright hover:underline focus-ring rounded"
+          >
+            Try a rigged sample PR →
+          </button>
+          <span className="h-3 w-px bg-line" aria-hidden />
+          <button
+            onClick={loadCleanSample}
+            title="A harmless refactor — the referee should wave it through"
+            className="text-xs font-medium text-fg-muted hover:text-fg hover:underline focus-ring rounded"
+          >
+            Try a clean PR →
+          </button>
+        </div>
       </div>
 
       <div className="space-y-3 p-4 sm:p-5">

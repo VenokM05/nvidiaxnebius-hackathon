@@ -57,6 +57,31 @@ Scene 11 is the longest line against an 18-second window. If you speak slowly,
 let the last sentence run one or two seconds past the scene change — nobody
 will notice, and the end card holds anyway.
 
+### Say this once, out loud (integrity, not style)
+
+The reel replays a **real recorded review**; it is not running live in front of
+the camera. Disclose it in one sentence — scene 4 is the natural place:
+
+> "These are the actual findings and the actual bill from a run I recorded
+> earlier on Token Factory — I'll show the live app in a moment."
+
+Judges assume demo footage is staged. Saying it first costs nothing and buys
+more credibility than the ten seconds it takes. It also sets up the live take in
+§3, which is the proof behind the claim.
+
+### Optional Act 5 — demonstrate restraint
+
+If you have thirty seconds left in the budget, run the **clean PR** sample after
+the rigged one. It is a behaviour-preserving refactor, and the referee waves it
+through with a green light and at most a low-severity note.
+
+> "And this is the same tool on a harmless refactor. No red card, no invented
+> severity — a clean sheet. A reviewer that alarms on everything gets switched
+> off by Friday, so restraint is a feature I test for."
+
+Back it with `node scripts/eval-cases.mjs`, which asserts both outcomes on every
+run: the rigged PR must draw a critical finding, the clean PR must not.
+
 ---
 
 ## 3. Optional live take (recommended, +25 seconds)
@@ -142,6 +167,7 @@ worse, but still a valid submission.
 - [ ] Mic selected and level-checked in Game Bar
 - [ ] Reel restarted with **R** before recording starts
 - [ ] All three **[MUST]** lines spoken (Nebius Token Factory, NVIDIA Nemotron, model switching)
+- [ ] One sentence disclosing that the reel replays a real recorded review
 - [ ] Runtime under 3:00
 - [ ] YouTube link is public and opens in an incognito window
 - [ ] Video shows the app working *and* explains Nebius + NVIDIA usage

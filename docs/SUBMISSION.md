@@ -17,9 +17,9 @@ card, or green light — with a transparent cost scoreboard versus closed APIs.
 
 Code review is where senior-engineer judgment lives, and it doesn't scale. Teams
 either pay frontier-API prices per review, or skip reviews under deadline
-pressure. Meanwhile the open model ecosystem — NVIDIA Nemotron, DeepSeek, Qwen,
-Kimi — is now strong enough to referee real pull requests, and Nebius Token
-Factory makes running them a single API key away.
+pressure. Meanwhile the open model ecosystem — NVIDIA Nemotron 3, Moonshot's
+Kimi, DeepSeek — is now strong enough to referee real pull requests, and Nebius
+Token Factory makes running them a single API key away.
 
 Repo Referee takes a GitHub PR URL, a pasted diff, or an uploaded patch file.
 It parses the unified diff, sends each changed file to an open model served on
@@ -40,11 +40,13 @@ still ships a complete, honest static review. With one, the open models take
 over the whistle.
 
 **How it's built**
-Next.js 16 (App Router, server route handlers) · React 19 · Tailwind v4 design
-system · Nebius Token Factory (OpenAI-compatible `/chat/completions`, one
-parallel call per changed file, capped at 10) · NVIDIA Nemotron Nano 9B v2 by
-default, with DeepSeek V3 / Qwen3 32B / Kimi K2 selectable · deterministic
-rule engine in TypeScript · in-memory result store for the demo.
+Next.js 16 (App Router, server route handlers, Cache Components) · React 19 ·
+Tailwind v4 design system · Nebius Token Factory (OpenAI-compatible
+`/chat/completions`, one parallel call per changed file, capped at 10) ·
+NVIDIA Nemotron 3 Nano 30B by default, with Nemotron 3 Super 120B, Kimi K2.7
+Code and DeepSeek V4.1 Flash selectable — model IDs verified against the live
+`/models` catalog · deterministic rule engine in TypeScript · in-memory result
+store plus a browser-side cache so the run → results flow survives serverless.
 
 **What's next**
 GitHub App auth for private repos · review comments posted back to the PR ·

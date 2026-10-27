@@ -60,10 +60,12 @@ lib/review.ts           orchestrator: fetch → parse → analyze → verdict
 lib/llm.ts              Token Factory client (OpenAI-compatible)
 lib/analyzer.ts         deterministic pre-analyzer rules
 lib/pricing.ts          model catalog + cost math
-lib/sample-pr.ts        rigged demo PR fixture
+lib/sample-pr.ts        rigged demo PR fixture (must draw a red card)
+lib/sample-clean.ts     behaviour-preserving refactor (must draw a green light)
 lib/demo-data.ts        baked snapshot of a real review (powers /demo)
 app/demo/               self-playing demo reel — see docs/DEMO-NARRATION.md
 scripts/test-review.mjs end-to-end smoke test (node scripts/test-review.mjs)
+scripts/eval-cases.mjs  two-case accuracy eval (node scripts/eval-cases.mjs)
 ```
 
 ## Architecture notes
@@ -75,7 +77,19 @@ scripts/test-review.mjs end-to-end smoke test (node scripts/test-review.mjs)
 - **Severity weights**: critical 25 · high 12 · medium 5 · low 2; any critical
   finding is an automatic red card.
 - Pricing figures in `lib/pricing.ts` are approximate and are the single source
-  of truth for the cost panel — update there when Token Factory pricing changes.
+  of truth for the cost panel — update there when Token Factory pricing changes,
+  and bump `PRICING_AS_OF`, which the scoreboard prints so a judge knows how old
+  the rates are.
+- **Evidence anchoring**: a model finding is only kept if its line can be
+  matched to a real added line in that file's diff (exact, else within ±3), and
+  the matched source text is displayed as the evidence. A finding that points
+  nowhere is dropped and counted — the results page reports how many, because an
+  unanchorable card destroys trust in the ones that are real.
+- **Restraint is a tested property**: the review prompt forbids raising issues
+  that depend on context the model was never given (unseen types, callers,
+  schema) and pushes such concerns down to `low`. `scripts/eval-cases.mjs`
+  asserts it on a behaviour-preserving refactor, so a regression toward
+  alarm-on-everything shows up as a failing test rather than a judge's opinion.
 
 ## License
 

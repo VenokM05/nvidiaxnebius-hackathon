@@ -37,12 +37,15 @@ export function Card({
 export function Pill({
   children,
   className = "",
+  title,
 }: {
   children: ReactNode;
   className?: string;
+  title?: string;
 }) {
   return (
     <span
+      title={title}
       className={`inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-2 px-2.5 py-1 text-[11px] font-medium tracking-wide text-fg-muted ${className}`}
     >
       {children}

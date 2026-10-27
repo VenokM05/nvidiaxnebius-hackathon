@@ -7,6 +7,9 @@
  * show the open-infrastructure delta (clearly labeled as an estimate in UI).
  */
 
+/** Date the per-million rates below were last checked. Quote savings with it. */
+export const PRICING_AS_OF = "2026-10-25";
+
 export interface ModelSpec {
   id: string;
   label: string;

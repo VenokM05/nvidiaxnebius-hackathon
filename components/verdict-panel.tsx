@@ -1,6 +1,6 @@
 "use client";
 
-import { CLOSED_MODEL_REFERENCE, costUsd } from "@/lib/pricing";
+import { CLOSED_MODEL_REFERENCE, PRICING_AS_OF, costUsd } from "@/lib/pricing";
 import type { ReviewResult } from "@/lib/types";
 
 const VERDICT_META = {
@@ -89,7 +89,10 @@ export default function VerdictPanel({ review }: { review: ReviewResult }) {
             </p>
             <dl className="mt-3 space-y-1.5 text-xs text-fg-muted">
               <div className="flex justify-between gap-6">
-                <dt>Tokens in / out</dt>
+                <dt>
+                  Tokens in / out{" "}
+                  <span className="text-fg-faint">· measured</span>
+                </dt>
                 <dd className="font-mono text-fg">
                   {review.usage.inputTokens.toLocaleString()} /{" "}
                   {review.usage.outputTokens.toLocaleString()}
@@ -108,6 +111,11 @@ export default function VerdictPanel({ review }: { review: ReviewResult }) {
                 </dd>
               </div>
             </dl>
+            <p className="mt-3 border-t border-line pt-2 font-mono text-[10px] leading-relaxed text-fg-faint">
+              Rates as of {PRICING_AS_OF}. Open cost is measured from the API
+              response; the closed-model figure is a same-workload estimate, not
+              an invoice.
+            </p>
           </>
         ) : (
           <>

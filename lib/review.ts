@@ -1,5 +1,5 @@
 import { staticFindings } from "./analyzer";
-import { parseDiff } from "./diff";
+import { addedLines, parseDiff } from "./diff";
 import { chat, hasNebiusKey, parseJsonArray } from "./llm";
 import { DEFAULT_MODEL, costUsd, modelSpec } from "./pricing";
 import { SYSTEM_PROMPT, userPrompt } from "./prompts";
@@ -53,12 +53,23 @@ async function fetchPr(
 
 function modelFindingsFrom(
   path: string,
-  items: unknown[]
-): Finding[] {
+  items: unknown[],
+  lines: Map<number, string>
+): { findings: Finding[]; dropped: number } {
   const out: Finding[] = [];
+  let dropped = 0;
   for (const it of items) {
     const f = it as Partial<Finding>;
     if (!f || typeof f.title !== "string" || typeof f.line !== "number") continue;
+    // The prompt promises the line exists in the diff; models do not always
+    // keep that promise. Anchor to a real added line or discard the finding —
+    // an unanchorable card is worse than no card, because the diff viewer
+    // would highlight a line that was never touched.
+    const anchored = anchorTo(lines, f.line);
+    if (anchored === null) {
+      dropped++;
+      continue;
+    }
     const sev: Severity = (
       ["critical", "high", "medium", "low", "info"] as Severity[]
     ).includes(f.severity as Severity)
@@ -67,7 +78,7 @@ function modelFindingsFrom(
     out.push({
       id: `m-${newId()}`,
       file: path,
-      line: f.line,
+      line: anchored,
       severity: sev,
       category: (["security", "bug", "performance", "reliability", "style"] as const).includes(
         f.category as never
@@ -77,11 +88,26 @@ function modelFindingsFrom(
       title: f.title.slice(0, 90),
       detail: String(f.detail ?? "").slice(0, 600),
       suggestion: String(f.suggestion ?? "").slice(0, 600),
-      evidence: "",
+      evidence: (lines.get(anchored) ?? "").trim().slice(0, 200),
       source: "model",
     });
   }
-  return out;
+  return { findings: out, dropped };
+}
+
+/**
+ * Exact line match, else the nearest added line within ±3 (models are usually
+ * off by one or two), else null. Only added lines are addressable, since that
+ * is the only text the model was shown.
+ */
+function anchorTo(lines: Map<number, string>, line: number): number | null {
+  if (!Number.isFinite(line)) return null;
+  if (lines.has(line)) return line;
+  for (let d = 1; d <= 3; d++) {
+    if (lines.has(line - d)) return line - d;
+    if (lines.has(line + d)) return line + d;
+  }
+  return null;
 }
 
 export async function runReview(req: ReviewRequest): Promise<ReviewResult> {
@@ -108,9 +134,10 @@ export async function runReview(req: ReviewRequest): Promise<ReviewResult> {
   const model = req.model && modelSpec(req.model) ? req.model : DEFAULT_MODEL;
   let inputTokens = 0;
   let outputTokens = 0;
+  let modelFailures = 0;
+  let droppedFindings = 0;
 
   if (hasNebiusKey()) {
-    provider = "nebius";
     const targets = files
       .filter((f) => f.additions > 0)
       .slice(0, 10); // cap: 10 files per review keeps demo latency sane
@@ -122,17 +149,24 @@ export async function runReview(req: ReviewRequest): Promise<ReviewResult> {
         ]);
         inputTokens += reply.inputTokens;
         outputTokens += reply.outputTokens;
-        return modelFindingsFrom(f.path, parseJsonArray(reply.content));
+        const lines = new Map(addedLines(f.raw).map((l) => [l.line, l.text]));
+        return modelFindingsFrom(f.path, parseJsonArray(reply.content), lines);
       })
     );
+    let reviewed = 0;
     for (const r of results) {
       if (r.status === "fulfilled") {
-        findings = findings.concat(r.value);
+        reviewed++;
+        findings = findings.concat(r.value.findings);
+        droppedFindings += r.value.dropped;
       } else {
+        // One bad file must not relabel the whole review as static, and must
+        // not be hidden either — the UI reports how many files went unserved.
+        modelFailures++;
         console.error("model review failed:", r.reason);
-        provider = "static";
       }
     }
+    provider = reviewed > 0 ? "nebius" : "static";
   }
 
   // dedupe: model finding on same file+line+category as a static hit → keep model
@@ -157,8 +191,19 @@ export async function runReview(req: ReviewRequest): Promise<ReviewResult> {
       : "approve";
 
   const spec = modelSpec(model);
-  const usageCost = provider === "nebius" ? costUsd(spec, inputTokens, outputTokens) : 0;
+  // Tokens spent on a call that later failed still cost money, so bill what
+  // was actually consumed rather than keying the cost off the provider label.
+  const usageCost =
+    inputTokens || outputTokens ? costUsd(spec, inputTokens, outputTokens) : 0;
   const count = (s: Severity) => findings.filter((f) => f.severity === s).length;
+
+  const caveats: string[] = [];
+  if (modelFailures > 0)
+    caveats.push(`${modelFailures} file(s) could not be reviewed by the model`);
+  if (droppedFindings > 0)
+    caveats.push(
+      `${droppedFindings} model finding(s) pointed outside the diff and were discarded`
+    );
 
   return {
     id: newId(),
@@ -168,6 +213,8 @@ export async function runReview(req: ReviewRequest): Promise<ReviewResult> {
     sourceUrl: req.prUrl,
     provider,
     model: provider === "nebius" ? model : "Static Pre-Analyzer + " + model,
+    modelFailures,
+    droppedFindings,
     files,
     findings,
     riskScore,
@@ -179,7 +226,8 @@ export async function runReview(req: ReviewRequest): Promise<ReviewResult> {
         ? "Red card: blocking issues must be fixed before merge."
         : verdict === "flag"
           ? "Yellow card: address the flagged issues, then re-run the referee."
-          : "Clean sheet: no blocking issues detected."),
+          : "Clean sheet: no blocking issues detected within the reviewed lines.") +
+      (caveats.length ? ` Note: ${caveats.join("; ")}.` : ""),
     usage: {
       model,
       inputTokens,

@@ -48,6 +48,10 @@ export interface ReviewResult {
   sourceUrl?: string;
   provider: "nebius" | "static";
   model: string;
+  /** files whose model call failed — reported, never silently dropped */
+  modelFailures?: number;
+  /** model findings whose line could not be anchored to the diff, and was cut */
+  droppedFindings?: number;
   files: DiffFile[];
   findings: Finding[];
   riskScore: number; // 0–100
