@@ -1,10 +1,12 @@
 # Repo Referee
 
+![Repo Referee](public/hero-referee.png)
+
 **Every pull request gets the card it deserves.**
 
 AI code review on open infrastructure: diffs are refereed by open-weights models
-(NVIDIA Nemotron, DeepSeek, Qwen, Kimi) served through **Nebius Token Factory**,
-with a transparent cost scoreboard versus closed frontier APIs.
+(NVIDIA Nemotron 3, Kimi K2.7 Code, DeepSeek V4.1) served through **Nebius Token
+Factory**, with a transparent cost scoreboard versus closed frontier APIs.
 
 Built for the Nebius × NVIDIA Global AI Hackathon 2026.
 
@@ -33,12 +35,16 @@ cp .env.example .env.local   # then paste your Nebius API key
 ```
 
 ```
-NEBIUS_API_KEY=nk-...
+NEBIUS_API_KEY=...            # Token Factory / service-account key (v1.<blob> format)
 NEBIUS_API_BASE=https://api.studio.nebius.ai/v1   # OpenAI-compatible
 ```
 
 Try the built-in demo: click **“Try a rigged sample PR →”** on the landing page,
 then **Run the Referee** — a billing PR with 10 planted issues earns a red card.
+
+Or open **`/demo`** for a self-playing 13-scene reel (~2:10) built from a real
+Nemotron-3 Nano review — verbatim findings, token counts and cost, no API key
+and no clicking. Narration script: `docs/DEMO-NARRATION.md`.
 
 ## Stack
 
@@ -55,6 +61,8 @@ lib/llm.ts              Token Factory client (OpenAI-compatible)
 lib/analyzer.ts         deterministic pre-analyzer rules
 lib/pricing.ts          model catalog + cost math
 lib/sample-pr.ts        rigged demo PR fixture
+lib/demo-data.ts        baked snapshot of a real review (powers /demo)
+app/demo/               self-playing demo reel — see docs/DEMO-NARRATION.md
 scripts/test-review.mjs end-to-end smoke test (node scripts/test-review.mjs)
 ```
 
