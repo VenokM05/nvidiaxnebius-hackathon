@@ -1,8 +1,10 @@
 /**
  * Model catalog served through Nebius Token Factory (OpenAI-compatible API).
- * Prices are approximate USD per 1M tokens — single source of truth, edit
- * here when pricing changes. Reference price simulates a mainstream closed
- * frontier model so the cost panel can show the open-infrastructure delta.
+ * These IDs are verified against the live /models endpoint on this account.
+ * Prices are ESTIMATES (USD per 1M tokens) — sync exact figures from the
+ * Nebius console pricing page before quoting savings publicly. Reference
+ * price simulates a mainstream closed frontier model so the cost panel can
+ * show the open-infrastructure delta (clearly labeled as an estimate in UI).
  */
 
 export interface ModelSpec {
@@ -11,33 +13,40 @@ export interface ModelSpec {
   inputPerM: number;
   outputPerM: number;
   note?: string;
+  /** reasoning models emit hidden thinking tokens before content */
+  reasoning?: boolean;
 }
 
 export const MODELS: ModelSpec[] = [
   {
-    id: "nvidia/NVIDIA-Nemotron-Nano-9B-v2",
-    label: "Nemotron Nano 9B v2",
-    inputPerM: 0.02,
-    outputPerM: 0.05,
-    note: "NVIDIA open model — reasoning tuned",
+    id: "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B",
+    label: "Nemotron 3 Nano 30B (NVIDIA)",
+    inputPerM: 0.05,
+    outputPerM: 0.2,
+    note: "NVIDIA open model — fast default referee",
+    reasoning: true,
   },
   {
-    id: "deepseek-ai/DeepSeek-V3",
-    label: "DeepSeek V3",
-    inputPerM: 0.22,
-    outputPerM: 0.85,
+    id: "nvidia/nemotron-3-super-120b-a12b",
+    label: "Nemotron 3 Super 120B (NVIDIA)",
+    inputPerM: 0.1,
+    outputPerM: 0.4,
+    note: "NVIDIA open model — stronger reasoning",
+    reasoning: true,
   },
   {
-    id: "Qwen/Qwen3-32B",
-    label: "Qwen3 32B",
-    inputPerM: 0.08,
-    outputPerM: 0.3,
-  },
-  {
-    id: "moonshotai/Kimi-K2-Instruct",
-    label: "Kimi K2 Instruct",
+    id: "moonshotai/Kimi-K2.7-Code",
+    label: "Kimi K2.7 Code",
     inputPerM: 0.6,
     outputPerM: 2.5,
+    note: "code-review specialist",
+    reasoning: true,
+  },
+  {
+    id: "deepseek-ai/DeepSeek-V4.1-Flash",
+    label: "DeepSeek V4.1 Flash",
+    inputPerM: 0.2,
+    outputPerM: 0.8,
   },
 ];
 

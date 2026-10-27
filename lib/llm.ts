@@ -19,7 +19,9 @@ export function hasNebiusKey(): boolean {
 export async function chat(
   model: string,
   messages: { role: string; content: string }[],
-  maxTokens = 1400
+  // reasoning models emit hidden thinking tokens before visible content,
+  // so the budget must cover both — 1400 caused empty-content replies.
+  maxTokens = 4000
 ): Promise<ChatReply> {
   const base = process.env.NEBIUS_API_BASE ?? "https://api.studio.nebius.ai/v1";
   const res = await fetch(`${base}/chat/completions`, {
@@ -34,7 +36,7 @@ export async function chat(
       temperature: 0.1,
       max_tokens: maxTokens,
     }),
-    signal: AbortSignal.timeout(90_000),
+    signal: AbortSignal.timeout(120_000),
   });
 
   if (!res.ok) {
