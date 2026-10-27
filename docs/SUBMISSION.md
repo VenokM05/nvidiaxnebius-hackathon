@@ -69,6 +69,42 @@ Fallback if a live PR fetch misbehaves mid-recording: the sample PR flow never
 fails (static engine), and pre-generate one model-powered results page to show
 the scoreboard with real token numbers.
 
+## 2b. Fastest path — record the built-in demo reel in 5 minutes
+
+The app ships a `/demo` route: a 13-scene, ~1:55 auto-playing reel built from a
+**real** model-powered review (verbatim findings, token counts and cost from
+Nemotron-3 Nano 30B on Token Factory). Every scene carries the narration line as
+an on-screen caption, so you can read the captions aloud and be done.
+
+Data lives in `lib/demo-data.ts`; scenes in `components/demo-scenes.tsx`;
+player in `components/demo-reel.tsx`. It is `noindex` and needs no API key.
+
+1. Build once, then serve production (this removes the Next.js dev-tools badge
+   from the bottom-left corner of the recording):
+   ```
+   npm run build && npm run start
+   ```
+2. Open `http://localhost:3000/demo` in Chrome/Edge, maximized (F11). Press
+   **F** on the page for true fullscreen if you want zero chrome.
+3. Start Windows capture: **Win + G** → Xbox Game Bar → **Win + Alt + R** starts
+   / stops recording. Clip lands in `Videos\Captures`.
+4. Press **R** to restart the reel from scene 1, then speak the captions as they
+   appear. Controls: **Space** pause · **← / →** step · **R** restart · **F** fullscreen.
+   If you stumble, hit Space, collect yourself, resume — trim later.
+5. Re-time if you talk slower/faster: each scene's `dur` (ms) is one line in the
+   `SCENES` array at the bottom of `components/demo-scenes.tsx`. Total budget is
+   3:00; leave headroom for a title card and your voice intro.
+
+Cut list, in order (these are the 13 scenes):
+title → problem → the rigged PR diff → VAR check → red card → 5 real findings →
+cost scoreboard → four open models → close.
+
+Notes for checklist item 3 ("show the app working **and** explain how you use
+Nebius and NVIDIA"): the reel covers the explanation; to also show live UI,
+record a second short take of `npm run dev` → homepage → **Try a rigged sample
+PR** → **Run the Referee** → results page, and splice it after scene 4. The
+live run takes ~12s with a key set, which is good pacing on camera.
+
 ## 3. Nebius onboarding (do this first, today)
 
 1. Create an account at nebius.com; claim hackathon participant credits if
@@ -85,7 +121,8 @@ the scoreboard with real token numbers.
 ## 4. Pre-submit checklist
 
 - [ ] Model mode works end-to-end with your key (non-zero token counts on screen)
-- [ ] Demo video ≤2 min recorded, audio checked, results readable at 1080p
+- [ ] Demo video ≤3 min recorded (see §2b — `/demo` reel), audio checked, results readable at 1080p
+- [ ] Video uploaded to YouTube (public or unlisted), link copied
 - [ ] GitHub repo committed + pushed; README shows screenshots of verdict screen
 - [ ] Optional: live URL (deploy on Vercel/Netlify with env var set) for Impact points
 - [ ] Devpost fields pasted, track = Coding, team name correct

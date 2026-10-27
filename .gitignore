@@ -42,3 +42,6 @@ next-env.d.ts
 
 # generated image sources (copies live in public/)
 vibe_images/
+
+# local demo capture scratch (screenshots, probe output)
+.demo-build/
