@@ -1,6 +1,7 @@
 "use client";
 
 import { MODELS } from "@/lib/pricing";
+import { cacheReview } from "@/lib/review-cache";
 import { SAMPLE_AUTHOR, SAMPLE_DIFF, SAMPLE_TITLE } from "@/lib/sample-pr";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
@@ -47,6 +48,7 @@ export default function ReviewForm() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+      cacheReview(json);
       router.push(`/review/${json.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Review failed.");

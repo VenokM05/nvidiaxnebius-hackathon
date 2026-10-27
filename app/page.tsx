@@ -5,7 +5,7 @@ import Image from "next/image";
 const FEATURES = [
   {
     k: "Open models",
-    v: "NVIDIA Nemotron, DeepSeek, Qwen and Kimi served through Nebius Token Factory — no closed door.",
+    v: "NVIDIA Nemotron 3, Kimi and DeepSeek served through Nebius Token Factory — no closed door.",
   },
   {
     k: "The card system",
