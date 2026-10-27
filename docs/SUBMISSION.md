@@ -71,13 +71,17 @@ the scoreboard with real token numbers.
 
 ## 2b. Fastest path — record the built-in demo reel in 5 minutes
 
-The app ships a `/demo` route: a 13-scene, ~1:55 auto-playing reel built from a
+The app ships a `/demo` route: a 13-scene, ~2:10 auto-playing reel built from a
 **real** model-powered review (verbatim findings, token counts and cost from
-Nemotron-3 Nano 30B on Token Factory). Every scene carries the narration line as
-an on-screen caption, so you can read the captions aloud and be done.
+Nemotron-3 Nano 30B on Token Factory). Every scene carries a one-line caption,
+and the full spoken script is timed against those scene lengths.
 
 Data lives in `lib/demo-data.ts`; scenes in `components/demo-scenes.tsx`;
 player in `components/demo-reel.tsx`. It is `noindex` and needs no API key.
+
+**Word-for-word narration, timed to these scenes, plus recording and delivery
+guidelines: `docs/DEMO-NARRATION.md`.** Scene durations there and here are
+matched — read at a normal pace and the reel turns pages for you.
 
 1. Build once, then serve production (this removes the Next.js dev-tools badge
    from the bottom-left corner of the recording):
@@ -88,12 +92,14 @@ player in `components/demo-reel.tsx`. It is `noindex` and needs no API key.
    **F** on the page for true fullscreen if you want zero chrome.
 3. Start Windows capture: **Win + G** → Xbox Game Bar → **Win + Alt + R** starts
    / stops recording. Clip lands in `Videos\Captures`.
-4. Press **R** to restart the reel from scene 1, then speak the captions as they
-   appear. Controls: **Space** pause · **← / →** step · **R** restart · **F** fullscreen.
-   If you stumble, hit Space, collect yourself, resume — trim later.
+4. Press **R** to restart the reel from scene 1, then read the narration in
+   `docs/DEMO-NARRATION.md` as each scene appears. Controls: **Space** pause,
+   **Left/Right** step, **R** restart, **F** fullscreen. If you stumble, hit
+   Space, collect yourself, resume; trim later.
 5. Re-time if you talk slower/faster: each scene's `dur` (ms) is one line in the
-   `SCENES` array at the bottom of `components/demo-scenes.tsx`. Total budget is
-   3:00; leave headroom for a title card and your voice intro.
+   `SCENES` array at the bottom of `components/demo-scenes.tsx`, and the script
+   table's timecodes are derived from those same numbers. Total budget is 3:00;
+   the reel runs 2:10, which leaves room for the optional live-UI take.
 
 Cut list, in order (these are the 13 scenes):
 title → problem → the rigged PR diff → VAR check → red card → 5 real findings →

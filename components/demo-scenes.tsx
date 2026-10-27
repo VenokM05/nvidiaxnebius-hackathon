@@ -273,21 +273,21 @@ export interface Scene {
 }
 
 export const SCENES: Scene[] = [
-  { id: "title", dur: 8000, caption: "Repo Referee — AI code review on open infrastructure.", Comp: Title },
+  { id: "title", dur: 9000, caption: "Repo Referee — AI code review on open infrastructure.", Comp: Title },
   { id: "problem", dur: 12000, caption: "Closed models price out review. Open models on Nebius don't.", Comp: Problem },
   { id: "input", dur: 12000, caption: "It takes a pull request diff — here, a rigged billing PR.", Comp: Input },
-  { id: "var", dur: 7000, caption: "An NVIDIA Nemotron open model referees every changed file.", Comp: VarCheck },
-  { id: "verdict", dur: 12000, caption: `Verdict: red card. ${DEMO_META.totalFindings} findings, risk ${DEMO_META.riskScore}. Merge blocked.`, Comp: Verdict },
+  { id: "var", dur: 8000, caption: "An NVIDIA Nemotron open model referees every changed file.", Comp: VarCheck },
+  { id: "verdict", dur: 13000, caption: `Verdict: red card. ${DEMO_META.totalFindings} findings, risk ${DEMO_META.riskScore}. Merge blocked.`, Comp: Verdict },
   ...FEATURED.map((f, i): Scene => ({
     id: `f${i}`,
-    dur: i === 0 ? 8000 : 6000,
+    dur: i === 0 ? 10000 : 7000,
     caption:
       i === 0
         ? "The model caught this — regex rules structurally cannot."
         : "Every finding is anchored to the exact line in the diff.",
     Comp: () => <Finding f={f} />,
   })),
-  { id: "board", dur: 14000, caption: "The whole review cost $0.0006 — 81% under a closed API.", Comp: Scoreboard },
+  { id: "board", dur: 18000, caption: "The whole review cost $0.0006 — 81% under a closed API.", Comp: Scoreboard },
   { id: "models", dur: 11000, caption: "Swap referees from one OpenAI-compatible endpoint.", Comp: Models },
   { id: "end", dur: 9000, caption: "Built for the Nebius × NVIDIA Global AI Hackathon.", Comp: End },
 ];
