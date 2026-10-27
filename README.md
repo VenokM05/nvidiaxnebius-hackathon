@@ -68,3 +68,8 @@ scripts/test-review.mjs end-to-end smoke test (node scripts/test-review.mjs)
   finding is an automatic red card.
 - Pricing figures in `lib/pricing.ts` are approximate and are the single source
   of truth for the cost panel — update there when Token Factory pricing changes.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+

@@ -97,3 +97,48 @@ the scoreboard with real token numbers.
 - GitHub rate limits on unauthenticated PR fetches (~60/hr)
 - Line anchoring counts added lines only
 - Closed-model cost figure is a stated estimate, not an API quote
+
+## 6. Demo URL — Vercel deploy (exact steps, ~10 min, solo)
+
+Deliberate choice: deploy **without** `NEBIUS_API_KEY`. Judges get a fully
+working demo (static pre-analyzer mode, same UI, real verdicts), and the key
+never sits on a public server — model mode is shown in the video from the
+local machine instead.
+
+1. Push `main` to GitHub and confirm the repo is **public** (required by the checklist).
+2. vercel.com → sign up with the same GitHub account → **Add New → Project → Import** `VenokM05/nvidiaxnebius-hackathon`.
+3. Framework auto-detected: **Next.js**. Leave build defaults; add env var `NEXT_TELEMETRY_DISABLED=1` if you like. **Add no other env vars.**
+4. Deploy → open `https://<project>.vercel.app` → click **Try a rigged sample PR → Run the Referee** → red card must appear.
+5. Put the URL in the Devpost form **and** at the top of the README.
+
+## 7. Tool feedback draft (checklist item 6 — edit into your own voice)
+
+Specific, hands-on observations from building Repo Referee:
+
+**Nebius Token Factory**
+- OpenAI-compatible `/v1/chat/completions` on a service-account key worked
+  first try for 10 parallel review calls — migration cost from an OpenAI SDK
+  was effectively zero.
+- Gotcha: reasoning models (Nemotron 3) consume part of `max_tokens` on hidden
+  reasoning. With a 1400-token cap we got HTTP 200, `finish_reason: "length"`
+  and **empty content** — no signal that reasoning ate the budget. Suggest a
+  docs callout and/or a distinct `finish_reason` for "reasoning budget
+  exhausted".
+- The public pricing page linked from Token Factory 404'd when we tried to
+  cite exact per-model rates for a cost comparison — pricing transparency
+  would directly help builders making open-vs-closed arguments.
+- Model ID casing is inconsistent across surfaces (`nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B`
+  vs `nvidia/nemotron-3-super-120b-a12b`) — easy to fat-finger in configs.
+
+**NVIDIA Nemotron 3 Nano 30B (A3B)**
+- Excellent strict-format compliance: with a JSON-array-only contract at
+  temperature 0.1, every response parsed; no prose bleed.
+- Real security judgment, not just pattern-matching: it flagged `curl | bash`
+  remote code execution and a second SQLi site that our 10-rule regex engine
+  structurally could not see — while correctly line-anchoring most findings.
+- Review of a 3-file PR completed in ~12 s for ~$0.0006, so per-PR review is
+  economically trivial at scale.
+- Note: reasoning overhead inflated output tokens (438 tokens for a one-line
+  trivial prompt) — teams doing high-volume structured extraction should
+  budget for this.
+
