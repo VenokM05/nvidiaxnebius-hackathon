@@ -136,7 +136,11 @@ live run takes ~12s with a key set, which is good pacing on camera.
 
 ## 5. Known limits (be honest in Devpost Q&A)
 
-- Reviews are session-scoped in memory (demo choice, not a bug)
+- Reviews are held in memory, plus a copy in the reviewer's own browser storage
+  so the run → results flow works on serverless. A permalink opened on a
+  *different* device only resolves where the process is long-lived (local dev,
+  a single Node host), not on Vercel. Demo choice, not a bug — a real
+  deployment swaps the map for a database.
 - GitHub rate limits on unauthenticated PR fetches (~60/hr)
 - Line anchoring counts added lines only
 - Closed-model cost figure is a stated estimate, not an API quote

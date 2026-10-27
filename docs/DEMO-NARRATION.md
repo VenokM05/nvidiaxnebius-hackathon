@@ -65,6 +65,20 @@ The reel proves the reasoning. Fifteen seconds of the real UI proves it's a
 working app. Record it as a second clip and splice it in **after scene 4** (the
 VAR check), before the red card.
 
+**Record this take locally, not from the Vercel URL.** The deployed demo
+deliberately has no API key, so its results page reads **"static pre-analyzer
+mode"** and returns 10 findings — naming Nemotron over that footage would be a
+false claim. On `localhost` with `.env.local` in place, the same run shows
+**"Nebius Token Factory"** and 14 findings, which is what the script says.
+
+If you would rather show the public URL on screen, use this honest line
+instead and keep everything else the same:
+
+> "That was the reel. This is the app itself — and on the public demo the key is
+> removed on purpose, so it falls back to the deterministic pre-analyzer. Same
+> verdict, same UI, no credits needed for a judge to try it. Locally, with a
+> Nebius key, it's the Nemotron model that produces these."
+
 Setup: `npm run dev`, homepage, key present in `.env.local` so the run is live.
 
 | Time | Action | Say this |
