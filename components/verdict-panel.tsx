@@ -44,9 +44,9 @@ export default function VerdictPanel({ review }: { review: ReviewResult }) {
       : null;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
+    <div className="grid gap-4 lg:grid-cols-2">
       {/* verdict + risk */}
-      <div className={`panel flex items-center gap-5 p-5 ${v.ring}`}>
+      <div className={`panel flex min-w-0 items-center gap-5 p-5 ${v.ring}`}>
         <span className={`text-3xl font-bold ${v.color}`}>{v.mark}</span>
         <div className="min-w-0 flex-1">
           <p className={`text-lg font-semibold tracking-tight ${v.color}`}>
@@ -73,7 +73,7 @@ export default function VerdictPanel({ review }: { review: ReviewResult }) {
       </div>
 
       {/* cost scoreboard */}
-      <div className="panel min-w-64 p-5">
+      <div className="panel min-w-0 p-5">
         <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-fg-faint">
           Cost scoreboard
         </p>
@@ -103,7 +103,7 @@ export default function VerdictPanel({ review }: { review: ReviewResult }) {
               </div>
               <div className="flex justify-between gap-6">
                 <dt>Model</dt>
-                <dd className="max-w-40 truncate font-mono text-fg">
+                <dd className="max-w-[16rem] truncate font-mono text-fg">
                   {review.model}
                 </dd>
               </div>
