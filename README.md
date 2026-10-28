@@ -37,7 +37,14 @@ cp .env.example .env.local   # then paste your Nebius API key
 ```
 NEBIUS_API_KEY=...            # Token Factory / service-account key (v1.<blob> format)
 NEBIUS_API_BASE=https://api.studio.nebius.ai/v1   # OpenAI-compatible
+DEMO_BUDGET_USD=2             # optional: rolling 24h model spend ceiling (default 2)
 ```
+
+Without the key the app still runs — on the deterministic pre-analyzer, at zero
+cost. With the key on a public deployment the endpoint is guarded (see
+`lib/guard.ts`): a 1.5 MB body cap, 20 requests per 10 minutes per IP, a 20k-char
+per-file prompt cap, and a rolling spend ceiling. Hitting the ceiling degrades to
+the free analyzer and says so in the summary rather than failing.
 
 Try the built-in demo: click **“Try a rigged sample PR →”** on the landing page,
 then **Run the Referee** — a billing PR with 10 planted issues earns a red card.
@@ -90,6 +97,12 @@ scripts/eval-cases.mjs  two-case accuracy eval (node scripts/eval-cases.mjs)
   schema) and pushes such concerns down to `low`. `scripts/eval-cases.mjs`
   asserts it on a behaviour-preserving refactor, so a regression toward
   alarm-on-everything shows up as a failing test rather than a judge's opinion.
+- **Public endpoint, bounded spend**: `lib/guard.ts` caps body size, requests
+  per IP, per-file prompt length and total model spend, falling back to the
+  static analyzer instead of erroring when the budget is gone. Timeouts are
+  nested deliberately — 12s GitHub fetch, 45s per model call, 60s platform
+  `maxDuration`, 65s browser give-up — so the server always answers before
+  anything above it hangs up.
 
 ## License
 

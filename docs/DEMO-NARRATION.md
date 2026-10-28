@@ -90,19 +90,26 @@ The reel proves the reasoning. Fifteen seconds of the real UI proves it's a
 working app. Record it as a second clip and splice it in **after scene 4** (the
 VAR check), before the red card.
 
-**Record this take locally, not from the Vercel URL.** The deployed demo
-deliberately has no API key, so its results page reads **"static pre-analyzer
-mode"** and returns 10 findings — naming Nemotron over that footage would be a
-false claim. On `localhost` with `.env.local` in place, the same run shows
-**"Nebius Token Factory"** and 14 findings, which is what the script says.
+**Check which engine the public URL is running before you name a model over its
+footage.** `curl https://<your-project>.vercel.app/api/review` — `"engine":"nebius"`
+means the deployed demo really is calling Nemotron, so the script's claim is true
+on either screen. `"engine":"static"` means the key is not set there, and the
+results page will read **"static pre-analyzer mode"** with 10 findings instead of
+**"Nebius Token Factory"** with 14 — naming Nemotron over that footage would be a
+false claim, so record the live take from `localhost` with `.env.local` in place.
 
-If you would rather show the public URL on screen, use this honest line
-instead and keep everything else the same:
+If the public URL is in static mode and you still want to show it, use this
+honest line instead and keep everything else the same:
 
 > "That was the reel. This is the app itself — and on the public demo the key is
 > removed on purpose, so it falls back to the deterministic pre-analyzer. Same
 > verdict, same UI, no credits needed for a judge to try it. Locally, with a
 > Nebius key, it's the Nemotron model that produces these."
+
+One more thing to know if the key *is* deployed: the demo has a rolling `$2`/24h
+model budget. When it runs out, reviews keep working but fall back to the static
+analyzer and the summary says so — so if the public site suddenly shows
+`$0.0000`, that is the guard doing its job, not a bug.
 
 Setup: `npm run dev`, homepage, key present in `.env.local` so the run is live.
 

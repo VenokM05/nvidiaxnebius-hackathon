@@ -18,12 +18,12 @@ const THINKING_LINES = [
 ];
 
 /**
- * The server can legitimately sit here for a while. Its worst case is a 30s
- * GitHub diff fetch plus a 70s model fan-out (lib/llm.ts), so 100s still means
- * "the server gave up before we did" rather than a hung connection — and a hung
- * or dead backend can no longer leave the button spinning forever.
+ * Just past the server's own ceiling. The function is limited to 60s on Vercel
+ * (`maxDuration`) and aborts each model call at 45s, so by 65s we either have a
+ * report or the platform already told us no — either way a hung or dead backend
+ * can no longer leave the button spinning forever.
  */
-const REVIEW_TIMEOUT_MS = 100_000;
+const REVIEW_TIMEOUT_MS = 65_000;
 
 /** Grace period for the client router before we force a full-page load. Long
  *  enough to cover a dev-server route compile, short enough that a stalled

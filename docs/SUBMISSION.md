@@ -149,16 +149,35 @@ live run takes ~12s with a key set, which is good pacing on camera.
 
 ## 6. Demo URL — Vercel deploy (exact steps, ~10 min, solo)
 
-Deliberate choice: deploy **without** `NEBIUS_API_KEY`. Judges get a fully
-working demo (static pre-analyzer mode, same UI, real verdicts), and the key
-never sits on a public server — model mode is shown in the video from the
-local machine instead.
+Current choice: deploy **with** `NEBIUS_API_KEY`, so a judge who clicks a sample
+on the public URL gets a real Nemotron review with measured tokens and cost —
+the strongest version of the demo. That is only safe because the endpoint is
+guarded (`lib/guard.ts`): 1.5 MB body cap, 20 requests per 10 min per IP, a
+20k-char per-file prompt cap, and a rolling `$2`/24h spend ceiling. When the
+ceiling is hit the app does not fail — it degrades to the free static analyzer
+and says so in the summary. The counters are per-instance memory, so this is a
+speed bump rather than a vault; that trade is documented in the file header.
 
 1. Push `main` to GitHub and confirm the repo is **public** (required by the checklist).
 2. vercel.com → sign up with the same GitHub account → **Add New → Project → Import** `VenokM05/nvidiaxnebius-hackathon`.
-3. Framework auto-detected: **Next.js**. Leave build defaults; add env var `NEXT_TELEMETRY_DISABLED=1` if you like. **Add no other env vars.**
-4. Deploy → open `https://<project>.vercel.app` → click **Try a rigged sample PR → Run the Referee** → red card must appear.
-5. Put the URL in the Devpost form **and** at the top of the README.
+3. Framework auto-detected: **Next.js**. Leave build defaults.
+4. **Settings → Environment Variables** → add, for *Production* (and Preview if you want it there):
+   - `NEBIUS_API_KEY` = the `v1.…` service-account key — **mark it "Encrypted", never "Sensitive"/plaintext in the repo**
+   - `NEBIUS_API_BASE` = `https://api.studio.nebius.ai/v1`
+   - optional `DEMO_BUDGET_USD` = `2` (default; lower it to `0.5` if you want a tighter ceiling)
+5. Redeploy (any new commit, or **Deployments → ⋯ → Redeploy**) — env changes need a new build.
+6. Verify without exposing anything: `curl https://<project>.vercel.app/api/review`
+   must return `{"ok":true,"engine":"nebius","modelBudgetUsd":2}`. If it says
+   `"engine":"static"`, the variable did not reach that environment.
+7. Click **Try a rigged sample PR → Run the Referee** on the public URL: red card,
+   `provider: nebius`, non-zero cost in the scoreboard.
+8. Put the URL in the Devpost form **and** at the top of the README.
+9. **Rotate the key after the event** — it lived in a public-facing deployment.
+
+Fallback if you would rather not spend credits at all: delete `NEBIUS_API_KEY`
+from Vercel. Everything still works in static mode and the cost panel reads
+`$0.0000` with an explanation; show model mode in the video from your local
+machine instead.
 
 ## 7. Tool feedback draft (checklist item 6 — edit into your own voice)
 

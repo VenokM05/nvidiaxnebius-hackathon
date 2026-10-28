@@ -1,5 +1,6 @@
 import { staticFindings } from "./analyzer";
 import { addedLines, parseDiff } from "./diff";
+import { MAX_BODY_BYTES, truncateForModel } from "./guard";
 import { chat, hasNebiusKey, parseJsonArray } from "./llm";
 import { DEFAULT_MODEL, costUsd, modelSpec } from "./pricing";
 import { SYSTEM_PROMPT, userPrompt } from "./prompts";
@@ -39,14 +40,16 @@ async function fetchPr(
   const m = /github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/.exec(url);
   if (!m) throw new Error("Not a GitHub PR URL (owner/repo/pull/N).");
   const [, owner, repo, n] = m;
+  // Budget: these run in parallel, then the model fan-out gets up to 45s
+  // (lib/llm.ts) — 12s + 45s still fits inside the function's 60s ceiling.
   const [metaRes, diffRes] = await Promise.all([
     fetch(`https://api.github.com/repos/${owner}/${repo}/pulls/${n}`, {
       headers: { Accept: "application/vnd.github+json" },
-      signal: AbortSignal.timeout(20_000),
+      signal: AbortSignal.timeout(12_000),
     }),
     fetch(`https://github.com/${owner}/${repo}/pull/${n}.diff`, {
       redirect: "follow",
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(12_000),
     }),
   ]);
   if (!diffRes.ok) throw new Error(`Could not fetch PR diff (${diffRes.status}).`);
@@ -120,7 +123,10 @@ function anchorTo(lines: Map<number, string>, line: number): number | null {
   return null;
 }
 
-export async function runReview(req: ReviewRequest): Promise<ReviewResult> {
+export async function runReview(
+  req: ReviewRequest,
+  opts: { allowModel?: boolean } = {}
+): Promise<ReviewResult> {
   const t0 = Date.now();
 
   let diff = req.diff ?? "";
@@ -136,6 +142,16 @@ export async function runReview(req: ReviewRequest): Promise<ReviewResult> {
   if (!diff.trim())
     throw new Error("The diff is empty — the PR has no changes or is not public.");
 
+  // A public PR can be enormous, and only the first 10 changed files are ever
+  // sent to the model. Cut at a line boundary rather than failing the review —
+  // and say so, because a silently shortened diff would misrepresent the PR.
+  let diffTruncated = false;
+  if (diff.length > MAX_BODY_BYTES) {
+    const cut = diff.lastIndexOf("\n", MAX_BODY_BYTES);
+    diff = diff.slice(0, cut > 0 ? cut : MAX_BODY_BYTES);
+    diffTruncated = true;
+  }
+
   const files = parseDiff(diff);
   if (files.length === 0) throw new Error("No `diff --git` sections found — is this a unified diff?");
 
@@ -147,7 +163,10 @@ export async function runReview(req: ReviewRequest): Promise<ReviewResult> {
   let modelFailures = 0;
   let droppedFindings = 0;
 
-  if (hasNebiusKey()) {
+  // The route turns the model off when the demo's spend budget is used up; the
+  // key being present is not by itself permission to spend.
+  const useModel = hasNebiusKey() && opts.allowModel !== false;
+  if (useModel) {
     const targets = files
       .filter((f) => f.additions > 0)
       .slice(0, 10); // cap: 10 files per review keeps demo latency sane
@@ -155,7 +174,10 @@ export async function runReview(req: ReviewRequest): Promise<ReviewResult> {
       targets.map(async (f) => {
         const reply = await chat(model, [
           { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userPrompt(f.path, f.raw, { title, author }) },
+          {
+            role: "user",
+            content: userPrompt(f.path, truncateForModel(f.raw), { title, author }),
+          },
         ]);
         inputTokens += reply.inputTokens;
         outputTokens += reply.outputTokens;
@@ -221,6 +243,14 @@ export async function runReview(req: ReviewRequest): Promise<ReviewResult> {
   const count = (s: Severity) => findings.filter((f) => f.severity === s).length;
 
   const caveats: string[] = [];
+  if (diffTruncated)
+    caveats.push(
+      "the diff was larger than 1.5 MB, so only its first part was reviewed"
+    );
+  if (hasNebiusKey() && !useModel)
+    caveats.push(
+      "this deployment's model spend budget is used up for now — the run used the deterministic pre-analyzer instead"
+    );
   if (modelFailures > 0)
     caveats.push(`${modelFailures} file(s) could not be reviewed by the model`);
   if (droppedFindings > 0)
