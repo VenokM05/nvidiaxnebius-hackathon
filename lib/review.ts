@@ -19,6 +19,16 @@ const SEV_WEIGHT: Record<Severity, number> = {
   info: 0,
 };
 
+/** Ordering only — used when two cards describe the same line and we must keep
+ *  the louder verdict. Money and risk still come from SEV_WEIGHT. */
+const SEV_RANK: Record<Severity, number> = {
+  info: 0,
+  low: 1,
+  medium: 2,
+  high: 3,
+  critical: 4,
+};
+
 function newId(): string {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 }
@@ -169,14 +179,27 @@ export async function runReview(req: ReviewRequest): Promise<ReviewResult> {
     provider = reviewed > 0 ? "nebius" : "static";
   }
 
-  // dedupe: model finding on same file+line+category as a static hit → keep model
+  // Dedupe: a model card and a static card on the same file+line+category are
+  // the same issue, so they must not be shown twice. The model keeps the pen
+  // (its explanation names the actual code), but a deterministic rule hit can
+  // never be *downgraded* by a softer model opinion — severity takes the max.
   const seen = new Map<string, Finding>();
-  const ordered = [...findings].sort(
-    (a, b) => (a.source === "model" ? 0 : 1) - (b.source === "model" ? 0 : 1)
-  );
-  for (const f of ordered) {
+  for (const f of findings) {
     const key = `${f.file}|${f.line}|${f.category}`;
-    if (!seen.has(key)) seen.set(key, f);
+    const prev = seen.get(key);
+    if (!prev) {
+      seen.set(key, f);
+      continue;
+    }
+    const narrative = prev.source === "model" ? prev : f;
+    // Loudness is decided by both cards, not by the one that keeps the pen.
+    const loudest =
+      SEV_RANK[prev.severity] > SEV_RANK[f.severity] ? prev.severity : f.severity;
+    seen.set(key, {
+      ...narrative,
+      severity: loudest,
+      evidence: narrative.evidence || f.evidence,
+    });
   }
   findings = [...seen.values()];
 
