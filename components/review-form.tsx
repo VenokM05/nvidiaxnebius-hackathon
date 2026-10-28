@@ -4,8 +4,8 @@ import { MODELS } from "@/lib/pricing";
 import { cacheReview } from "@/lib/review-cache";
 import { CLEAN_AUTHOR, CLEAN_DIFF, CLEAN_TITLE } from "@/lib/sample-clean";
 import { SAMPLE_AUTHOR, SAMPLE_DIFF, SAMPLE_TITLE } from "@/lib/sample-pr";
-import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { Button, Spinner } from "./ui";
 
 type Mode = "pr" | "diff";
@@ -17,8 +17,22 @@ const THINKING_LINES = [
   "VAR check in progress…",
 ];
 
+/**
+ * The server can legitimately sit here for a while. Its worst case is a 30s
+ * GitHub diff fetch plus a 70s model fan-out (lib/llm.ts), so 100s still means
+ * "the server gave up before we did" rather than a hung connection — and a hung
+ * or dead backend can no longer leave the button spinning forever.
+ */
+const REVIEW_TIMEOUT_MS = 100_000;
+
+/** Grace period for the client router before we force a full-page load. Long
+ *  enough to cover a dev-server route compile, short enough that a stalled
+ *  transition is never a dead end. */
+const NAVIGATE_GRACE_MS = 8_000;
+
 export default function ReviewForm() {
   const router = useRouter();
+  const pathname = usePathname();
   const [mode, setMode] = useState<Mode>("pr");
   const [prUrl, setPrUrl] = useState("");
   const [diff, setDiff] = useState("");
@@ -29,18 +43,67 @@ export default function ReviewForm() {
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
+  const busyRef = useRef(false);
+  const cleanupsRef = useRef<Set<() => void>>(new Set());
+  const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Latest pathname, readable from a timer callback without an effect.
+  const pathRef = useRef(pathname);
+  useEffect(() => {
+    pathRef.current = pathname;
+  }, [pathname]);
+
+  // Unmounting (including a successful navigation) tears down every timer and
+  // cancels any in-flight request.
+  useEffect(
+    () => () => {
+      if (navTimerRef.current !== null) clearTimeout(navTimerRef.current);
+      for (const fn of cleanupsRef.current) fn();
+      cleanupsRef.current.clear();
+    },
+    []
+  );
+
+  /** Bring the form back to a usable state and show why the review didn't land. */
+  function restoreForm(message: string) {
+    if (navTimerRef.current !== null) {
+      clearTimeout(navTimerRef.current);
+      navTimerRef.current = null;
+    }
+    busyRef.current = false;
+    setBusy(false);
+    setError(message);
+  }
 
   async function submit() {
+    if (busyRef.current) return; // double-submit guard: state updates are async
+    busyRef.current = true;
     setBusy(true);
     setError(null);
-    const timer = setInterval(
+    setTick(0);
+
+    const ctrl = new AbortController();
+    let timedOut = false;
+    let landed = false;
+
+    const spinner = setInterval(
       () => setTick((t) => (t + 1) % THINKING_LINES.length),
       1600
     );
+    const killer = setTimeout(() => {
+      timedOut = true;
+      ctrl.abort();
+    }, REVIEW_TIMEOUT_MS);
+    cleanupsRef.current.add(() => {
+      clearInterval(spinner);
+      clearTimeout(killer);
+      ctrl.abort();
+    });
+
     try {
       const res = await fetch("/api/review", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: ctrl.signal,
         body: JSON.stringify(
           mode === "pr"
             ? { prUrl: prUrl.trim(), model }
@@ -50,11 +113,43 @@ export default function ReviewForm() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
       cacheReview(json);
-      router.push(`/review/${json.id}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Review failed.");
+      landed = true;
+      clearInterval(spinner);
+      clearTimeout(killer);
+      // Release the button the moment we have a report. The router usually
+      // unmounts this form, but App Router keeps the outgoing page mounted
+      // (hidden) while a transition settles — and a hidden form that still
+      // thinks it is busy comes back disabled when the user navigates here
+      // again. Clearing busy makes that impossible.
+      busyRef.current = false;
       setBusy(false);
-      clearInterval(timer);
+      const url = `/review/${json.id}`;
+      const origin = pathname;
+      router.push(url);
+      // If the client router never lands (stalled RSC stream, dev hiccup), a
+      // plain document load will — and it only fires while we are still here.
+      navTimerRef.current = setTimeout(() => {
+        navTimerRef.current = null;
+        if (pathRef.current !== origin) return;
+        // Deliberate full-page navigation as the last resort.
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+        window.location.assign(url);
+      }, NAVIGATE_GRACE_MS);
+    } catch (err) {
+      restoreForm(
+        timedOut
+          ? `No answer after ${REVIEW_TIMEOUT_MS / 1000}s — the model or the server is stuck. Try again.`
+          : err instanceof TypeError
+            ? "Could not reach the review service. Is the server running?"
+            : err instanceof Error
+              ? err.message
+              : "Review failed."
+      );
+    } finally {
+      if (!landed) {
+        for (const fn of cleanupsRef.current) fn();
+        cleanupsRef.current.clear();
+      }
     }
   }
 
@@ -211,9 +306,15 @@ export default function ReviewForm() {
         </div>
 
         {error && (
-          <p className="rounded-lg border border-critical/40 bg-critical/10 px-3 py-2 text-xs text-critical">
-            {error}
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-critical/40 bg-critical/10 px-3 py-2">
+            <p className="text-xs text-critical">{error}</p>
+            <button
+              onClick={submit}
+              className="focus-ring rounded-md border border-critical/40 px-2.5 py-1 text-xs font-medium text-critical hover:bg-critical/10"
+            >
+              Retry
+            </button>
+          </div>
         )}
       </div>
     </div>

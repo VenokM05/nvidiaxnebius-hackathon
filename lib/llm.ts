@@ -36,7 +36,10 @@ export async function chat(
       temperature: 0.1,
       max_tokens: maxTokens,
     }),
-    signal: AbortSignal.timeout(120_000),
+    // All file calls run in parallel, so this is also the ceiling for a whole
+    // review. It stays under the client's 90s give-up timer in review-form.tsx,
+    // meaning the server always answers before the browser stops waiting.
+    signal: AbortSignal.timeout(70_000),
   });
 
   if (!res.ok) {
